@@ -27,6 +27,14 @@ jobs:
       - name: Run scraper
         run: python scraper.py
 
+      - name: Upload debug HTML if scraper failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-response
+          path: debug_response.html
+          retention-days: 7
+
       - name: Commit feed.xml if changed
         run: |
           git config user.name "github-actions[bot]"
