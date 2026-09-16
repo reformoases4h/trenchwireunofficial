@@ -33,7 +33,13 @@ def load_existing_descriptions(path: str):
     except FileNotFoundError:
         return cache
 
-    soup = BeautifulSoup(content, "xml")
+    # "xml" needs lxml installed; fall back gracefully if it isn't, so a
+    # missing dependency degrades to "no cache" rather than crashing.
+    try:
+        soup = BeautifulSoup(content, "xml")
+    except Exception:
+        soup = BeautifulSoup(content, "html.parser")
+
     for item in soup.find_all("item"):
         link = item.find("link")
         desc = item.find("description")
@@ -91,7 +97,18 @@ HEADERS = {
 
 def fetch_html(url: str) -> str:
     resp = requests.get(url, headers=HEADERS, timeout=30)
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        # Save the response so the failure is diagnosable from the
+        # workflow artifact instead of just an exit code.
+        with open("debug_response.html", "w", encoding="utf-8") as f:
+            f.write(resp.text)
+        print(
+            f"Request to {url} returned HTTP {resp.status_code}. "
+            "The site may be blocking the runner's IP or serving a "
+            "challenge page. See the debug-response artifact.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     return resp.text
 
 
